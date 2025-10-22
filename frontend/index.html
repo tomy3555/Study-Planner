@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Study Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Study Planner</h1>
+    <p class="muted">Subjects → Summaries → Plan → Tasks</p>
+  </header>
+
+  <main class="grid">
+    <!-- Subjects -->
+    <section>
+      <h2>Subjects</h2>
+      <form id="subjectForm">
+        <label>Nombre</label>
+        <input id="subjectName" required placeholder="Ej: Matemática 1" />
+        <button type="submit">Crear</button>
+      </form>
+
+      <div class="actions">
+        <button id="btnLoadSubjects">Refrescar lista</button>
+      </div>
+
+      <ul id="subjectsList" class="list"></ul>
+    </section>
+
+    <!-- Summaries -->
+    <section>
+      <h2>Summaries</h2>
+      <form id="summaryForm">
+        <label>Subject</label>
+        <select id="summarySubjectId" required></select>
+
+        <label>Título</label>
+        <input id="summaryTitle" required placeholder="Resumen Álgebra I" />
+
+        <label>Páginas</label>
+        <input id="summaryPages" type="number" min="1" required placeholder="70" />
+
+        <label>Fecha de examen</label>
+        <input id="summaryExamDate" type="date" required />
+
+        <button type="submit">Crear</button>
+      </form>
+
+      <div class="actions">
+        <button id="btnLoadSummaries">Refrescar lista</button>
+      </div>
+
+      <ul id="summariesList" class="list"></ul>
+    </section>
+
+    <!-- Plan -->
+    <section>
+      <h2>Generar Plan</h2>
+      <form id="planForm">
+        <label>Summary</label>
+        <select id="planSummaryId" required></select>
+
+        <label>Inicio</label>
+        <input id="planStartDate" type="date" required />
+
+        <label>Fin</label>
+        <input id="planEndDate" type="date" required />
+
+        <label>Read Ratio (0..1)</label>
+        <input id="planReadRatio" type="number" step="0.1" min="0.1" max="0.9" value="0.6" required />
+
+        <label>Buffer Days</label>
+        <input id="planBufferDays" type="number" min="0" max="3" value="2" required />
+
+        <label>Review Quota</label>
+        <input id="planReviewQuota" type="number" min="0" max="200" value="20" required />
+
+        <button type="submit">Generar</button>
+      </form>
+
+      <div class="note muted">Al generar plan, si había uno para ese summary, se reemplaza.</div>
+
+      <div class="actions">
+        <label>Plan ID</label>
+        <input id="tasksPlanId" type="number" placeholder="Ej: 1" />
+        <label>Desde</label>
+        <input id="tasksFrom" type="date" />
+        <label>Hasta</label>
+        <input id="tasksTo" type="date" />
+        <button id="btnLoadTasks">Ver tareas</button>
+      </div>
+
+      <div id="tasksList" class="cards"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span id="status" class="muted"></span>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>
