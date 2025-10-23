@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Study Planner — Cards</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="../style.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+  <script src="../js/header.js" defer></script>
+
+  <main class="grid" style="padding:16px">
+    <section>
+      <h2>Cards</h2>
+
+      <div class="actions">
+        <label>Summary</label>
+        <select id="summaryId"></select>
+
+        <input id="search" placeholder="Buscar en Q/A..." />
+        <button id="btnRefresh">Refrescar</button>
+
+        <span class="muted">IA:</span>
+        <input id="perPage" type="number" min="1" max="5" value="2" style="width:80px" />
+        <button id="btnGenCards">🧠 Generar más</button>
+      </div>
+
+      <div id="cardsList" class="cards"></div>
+
+      <footer><span id="status" class="muted"></span></footer>
+    </section>
+  </main>
+
+  <script type="module">
+    import { API, $, j, setStatus } from "../js/common.js";
+
+    const sel = $("#summaryId");
+    const cardsList = $("#cardsList");
+    const search = $("#search");
+
+    let cache = [];
+
+    async function loadSummaries() {
+      const r = await fetch(`${API}/api/summaries`);
+      const data = await j(r);
+      sel.innerHTML = "";
+      data.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = `${s.title} (#${s.id})`;
+        sel.appendChild(opt);
+      });
+      if (data.length) await loadCards();
+    }
+
+    function render(list) {
+      cardsList.innerHTML = "";
+      if (!list.length) {
+        const d = document.createElement("div"); d.className="card";
+        d.textContent = "Sin resultados.";
+        cardsList.appendChild(d);
+        return;
+      }
+      for (const c of list) {
+        const d = document.createElement("div"); d.className="card";
+        d.innerHTML = `
+          <div class="muted">pág. ${c.originPage ?? "?"}</div>
+          <div><strong>Q:</strong> ${c.question}</div>
+          <div><strong>A:</strong> ${c.answer}</div>
+        `;
+        cardsList.appendChild(d);
+      }
+    }
+
+    function applyFilter() {
+      const term = search.value.trim().toLowerCase();
+      if (!term) return render(cache);
+      const filtered = cache.filter(c =>
+        (c.question?.toLowerCase().includes(term)) ||
+        (c.answer?.toLowerCase().includes(term))
+      );
+      render(filtered);
+    }
+
+    async function loadCards() {
+      const sid = Number(sel.value);
+      if (!sid) return;
+      const r = await fetch(`${API}/api/summaries/${sid}/cards`);
+      cache = await j(r);
+      render(cache);
+      setStatus(`Cards: ${cache.length}`, "ok");
+    }
+
+    $("#btnRefresh").addEventListener("click", () => loadCards().catch(err=>setStatus(err.message,"error")));
+    sel.addEventListener("change", () => loadCards().catch(err=>setStatus(err.message,"error")));
+    search.addEventListener("input", applyFilter);
+
+    $("#btnGenCards").addEventListener("click", async () => {
+      const sid = Number(sel.value);
+      const per = Number($("#perPage").value) || 2;
+      if (!sid) return setStatus("Elegí un summary", "error");
+      try {
+        const r = await fetch(`${API}/api/summaries/${sid}/ai/generate-cards?per_page=${per}`, { method: "POST" });
+        const data = await j(r);
+        setStatus(`Cards generadas: ${data.cards}`, "ok");
+        await loadCards();
+      } catch (err) {
+        setStatus(err.message, "error");
+      }
+    });
+
+    loadSummaries().catch(()=>{});
+  </script>
+</body>
+</html>

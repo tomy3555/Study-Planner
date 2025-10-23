@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Study Planner — Tasks</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- CSS (desde /html/ subimos un nivel) -->
+  <link rel="stylesheet" href="../style.css" />
+</head>
+<body>
+  <!-- Header reusable -->
+  <div id="site-header"></div>
+  <script src="../js/header.js" defer></script>
+
+  <main class="grid" style="padding:16px">
+    <section>
+      <h2>Tareas</h2>
+
+      <!-- Filtros -->
+      <div class="actions">
+        <label>Plan ID</label>
+        <input id="tasksPlanId" type="number" placeholder="Ej: 1" style="width:110px">
+        <label>Desde</label>
+        <input id="tasksFrom" type="date">
+        <label>Hasta</label>
+        <input id="tasksTo" type="date">
+
+        <button id="btnToday">Hoy</button>
+        <button id="btnNext7">Próx. 7 días</button>
+
+        <button id="btnLoadTasks">Ver tareas</button>
+      </div>
+
+      <!-- Lista -->
+      <div id="tasksList" class="cards"></div>
+
+      <footer><span id="status" class="muted"></span></footer>
+    </section>
+  </main>
+
+  <!-- Lógica propia de la página -->
+  <script type="module">
+    import { API, $, j, setStatus } from "../js/common.js";
+
+    const planIdEl = $("#tasksPlanId");
+    const fromEl = $("#tasksFrom");
+    const toEl = $("#tasksTo");
+    const btnLoad = $("#btnLoadTasks");
+    const btnToday = $("#btnToday");
+    const btnNext7 = $("#btnNext7");
+    const listEl = $("#tasksList");
+
+    // Helpers fecha
+    const todayStr = () => new Date().toISOString().slice(0,10);
+    const addDays = (d, n) => {
+      const dt = new Date(d);
+      dt.setDate(dt.getDate() + n);
+      return dt.toISOString().slice(0,10);
+    };
+
+    // Render
+    function renderTasks(tasks) {
+      listEl.innerHTML = "";
+      if (!tasks.length) {
+        const empty = document.createElement("div");
+        empty.className = "card";
+        empty.textContent = "No hay tareas para el rango seleccionado.";
+        listEl.appendChild(empty);
+        return;
+      }
+
+      // Contenedor delega clicks para evitar muchos listeners
+      listEl.onclick = async (e) => {
+        const btn = e.target.closest("button[data-id][data-status]");
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        const status = btn.dataset.status;
+        try {
+          const r = await fetch(`${API}/api/tasks/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status })
+          });
+          await j(r);
+          await loadTasks(); // refresca
+          setStatus(`Task #${id} → ${status}`, "ok");
+        } catch (err) {
+          setStatus(err.message, "error");
+        }
+      };
+
+      // Pintar tarjetas
+      for (const t of tasks) {
+        const card = document.createElement("div");
+        card.className = "card";
+        const badge = (cls, txt) => `<span class="badge ${cls}">${txt}</span>`;
+
+        let extra = "";
+        if (t.taskType === "read") extra = `pág. ${t.startPage}-${t.endPage}`;
+        else if (t.taskType === "review") extra = `quota: ${t.reviewQuota}`;
+        else if (t.taskType === "practice") extra = `items: ${t.practiceItems ?? 1}`;
+
+        card.innerHTML = `
+          <div class="row">
+            <strong>${t.dayDate}</strong>
+            ${badge("", t.taskType)}
+            ${badge(t.status, t.status)}
+          </div>
+          <div>${t.notes ?? ""}</div>
+          <div class="muted">${extra}</div>
+          <div class="actions">
+            <button data-id="${t.id}" data-status="done">✔ Hecha</button>
+            <button data-id="${t.id}" data-status="skipped">⏭ Omitir</button>
+            <button data-id="${t.id}" data-status="pending">↺ Pendiente</button>
+          </div>
+        `;
+        listEl.appendChild(card);
+      }
+    }
+
+    // Carga desde la API
+    async function loadTasks() {
+      const pid = Number(planIdEl.value);
+      if (!pid) return setStatus("Poné un Plan ID", "error");
+
+      const qs = new URLSearchParams();
+      if (fromEl.value) qs.set("from_date", fromEl.value);
+      if (toEl.value) qs.set("to_date", toEl.value);
+
+      try {
+        const r = await fetch(`${API}/api/plans/${pid}/tasks${qs.toString() ? `?${qs}` : ""}`);
+        const data = await j(r);
+        renderTasks(data);
+        setStatus(`Tareas: ${data.length}`, "ok");
+      } catch (err) {
+        setStatus(err.message, "error");
+      }
+    }
+
+    // Rango rápidos
+    btnToday.addEventListener("click", () => {
+      const t = todayStr();
+      fromEl.value = t;
+      toEl.value = t;
+      loadTasks();
+    });
+
+    btnNext7.addEventListener("click", () => {
+      const t = todayStr();
+      fromEl.value = t;
+      toEl.value = addDays(t, 7);
+      loadTasks();
+    });
+
+    // Botón principal
+    btnLoad.addEventListener("click", () => loadTasks());
+
+    // Si guardaste el último planId en localStorage, precárgalo (opcional)
+    try {
+      const lastPlan = localStorage.getItem("lastPlanId");
+      if (lastPlan) planIdEl.value = Number(lastPlan);
+    } catch {}
+
+    // UX: si venís desde plan.html, podés pasar ?planId=#
+    const url = new URL(location.href);
+    const qPid = url.searchParams.get("planId");
+    if (qPid) planIdEl.value = Number(qPid);
+
+    // Set default “desde” hoy
+    fromEl.value = todayStr();
+  </script>
+</body>
+</html>

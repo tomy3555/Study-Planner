@@ -45,21 +45,21 @@ planStartDate.value = todayStr();
 async function listSubjects() {
   const r = await fetch(`${API}/api/subjects`);
   const data = await j(r);
+
   subjectsList.innerHTML = "";
-  summarySubjectId.innerHTML = "";
-  planSummaryId.innerHTML = "";
+  summarySubjectId.innerHTML = "";   // este sí (para crear Summary)
+
   data.forEach(s => {
     const li = document.createElement("li");
     li.textContent = `${s.id} · ${s.name}`;
     subjectsList.appendChild(li);
 
-    const opt1 = document.createElement("option");
-    opt1.value = s.id; opt1.textContent = `${s.name} (#${s.id})`;
-    summarySubjectId.appendChild(opt1);
-
-    const opt2 = opt1.cloneNode(true);
-    planSummaryId.appendChild(opt2);
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = `${s.name} (#${s.id})`;
+    summarySubjectId.appendChild(opt);   // elegir subject al crear summary
   });
+
   setStatus(`Subjects: ${data.length}`, "ok");
 }
 
@@ -77,15 +77,36 @@ async function createSubject(e) {
   setStatus(`Subject creado (#${data.id})`, "ok");
 }
 
+let summariesCache = []; // para consultar examDate al cambiar selección
+
 async function listSummaries() {
   const r = await fetch(`${API}/api/summaries`);
   const data = await j(r);
+  summariesCache = data;
+
   summariesList.innerHTML = "";
+  planSummaryId.innerHTML = "";      // acá sí llenamos el select de plan
+
   data.forEach(s => {
     const li = document.createElement("li");
     li.innerHTML = `<strong>#${s.id}</strong> · ${s.title} (subject ${s.subjectId}) · páginas ${s.pages} · examen ${s.examDate}`;
     summariesList.appendChild(li);
+
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = `${s.title} (#${s.id})`;
+    planSummaryId.appendChild(opt);
   });
+
+  // si hay al menos un summary, setear endDate = examDate del seleccionado
+  if (data.length > 0) {
+    const sel = Number(planSummaryId.value);
+    const found = data.find(x => x.id === sel);
+    if (found) {
+      planEndDate.value = found.examDate; // ayuda para generar plan
+    }
+  }
+
   setStatus(`Summaries: ${data.length}`, "ok");
 }
 
@@ -125,6 +146,12 @@ async function generatePlan(e) {
   });
   const data = await j(r);
   tasksPlanId.value = data.id;
+
+  // 👇 carga automática de tareas del plan recién creado
+  tasksFrom.value = ""; // opcional: limpiar rango
+  tasksTo.value = "";
+  await listTasks();
+
   setStatus(`Plan generado (#${data.id})`, "ok");
 }
 

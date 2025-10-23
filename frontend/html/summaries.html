@@ -1,0 +1,54 @@
+<!doctype html><html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Summaries</title>
+<link rel="stylesheet" href="../style.css">
+
+</head><body>
+<div id="site-header"></div>
+<script src="../js/header.js" defer></script>
+<main class="grid" style="padding:16px">
+  <section>
+    <h2>Summaries</h2>
+    <form id="summaryForm">
+      <label>Subject</label>
+      <select id="summarySubjectId" required></select>
+      <label>Título</label>
+      <input id="summaryTitle" required>
+      <label>Páginas</label>
+      <input id="summaryPages" type="number" min="1" required>
+      <label>Fecha examen</label>
+      <input id="summaryExamDate" type="date" required>
+      <button>Crear</button>
+    </form>
+    <div class="actions">
+      <button id="btnLoadSummaries">Refrescar</button>
+    </div>
+    <ul id="summariesList" class="list"></ul>
+    <footer><span id="status" class="muted"></span></footer>
+  </section>
+</main>
+<script src="../js/header.js"></script>
+<script type="module">
+  import { API, $, j, setStatus } from "../js/common.js";
+  const sSel = $("#summarySubjectId"), sForm=$("#summaryForm");
+  const title=$("#summaryTitle"), pages=$("#summaryPages"), date=$("#summaryExamDate");
+  const sList=$("#summariesList"), btn=$("#btnLoadSummaries");
+
+  async function listSubjects(){ const r=await fetch(`${API}/api/subjects`); const data=await j(r);
+    sSel.innerHTML=""; data.forEach(s=>{ const opt=document.createElement("option"); opt.value=s.id; opt.textContent=`${s.name} (#${s.id})`; sSel.appendChild(opt);});
+  }
+  async function listSummaries(){ const r=await fetch(`${API}/api/summaries`); const data=await j(r);
+    sList.innerHTML=""; data.forEach(s=>{ const li=document.createElement("li");
+      li.innerHTML = `<strong>#${s.id}</strong> · ${s.title} · subj ${s.subjectId} · págs ${s.pages} · exam ${s.examDate}`; sList.appendChild(li);
+    }); setStatus(`Summaries: ${data.length}`,"ok");
+  }
+  sForm.addEventListener("submit", async e=>{
+    e.preventDefault();
+    const payload={subjectId:Number(sSel.value),title:title.value.trim(),pages:Number(pages.value),examDate:date.value};
+    const r=await fetch(`${API}/api/summaries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    await j(r); title.value=""; pages.value=""; date.value=""; listSummaries();
+  });
+  btn.addEventListener("click", ()=>listSummaries());
+  listSubjects().then(listSummaries);
+</script>
+</body></html>

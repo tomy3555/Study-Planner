@@ -3,8 +3,8 @@ from datetime import datetime, date
 from enum import Enum as PyEnum
 
 from sqlalchemy import (
-    String, Integer, Date, DateTime, Enum, ForeignKey,
-    UniqueConstraint, Numeric, func
+    String, Integer, Date, DateTime, ForeignKey,
+    UniqueConstraint, Numeric, func, Text  # 👈 Text de SQLAlchemy
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -19,7 +19,6 @@ class TaskType(PyEnum):
     PRACTICE = "practice"
     REVIEW = "review"
     REST = "rest"
-
 
 
 class TaskStatus(PyEnum):
@@ -116,7 +115,7 @@ class StudyTask(Base):
     )
     day_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    task_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    task_type: Mapped[str] = mapped_column(String(16), nullable=False)  # "read"/"review"/"practice"/"rest"
 
     # Campos específicos según tipo
     start_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -127,8 +126,44 @@ class StudyTask(Base):
     notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default=TaskStatus.PENDING
+        String(16),
+        nullable=False,
+        server_default="pending"  # 👈 string, no enum Python
     )
 
     # Relaciones
     plan: Mapped[StudyPlan] = relationship("StudyPlan", back_populates="tasks")
+
+
+# ======================
+# topics
+# ======================
+class Topic(Base):
+    __tablename__ = "topics"
+    __table_args__ = (
+        UniqueConstraint("summary_id", "start_page", name="uq_topic_range"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    summary_id: Mapped[int] = mapped_column(
+        ForeignKey("summaries.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    start_page: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_page: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+# ======================
+# cards
+# ======================
+class Card(Base):
+    __tablename__ = "cards"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    summary_id: Mapped[int] = mapped_column(
+        ForeignKey("summaries.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    topic_id: Mapped[int | None] = mapped_column(
+        ForeignKey("topics.id", ondelete="SET NULL"), nullable=True
+    )
+    origin_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)  # 👈 Text de SQLAlchemy
+    answer: Mapped[str] = mapped_column(Text, nullable=False)    # 👈 Text de SQLAlchemy

@@ -1,0 +1,39 @@
+<!doctype html><html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subjects</title>
+<link rel="stylesheet" href="../style.css">
+
+</head><body>
+<div id="site-header"></div>
+<script src="../js/header.js" defer></script>
+<main class="grid" style="padding:16px">
+  <section>
+    <h2>Subjects</h2>
+    <form id="subjectForm">
+      <label>Nombre</label>
+      <input id="subjectName" required>
+      <button>Crear</button>
+    </form>
+    <div class="actions"><button id="btnLoadSubjects">Refrescar</button></div>
+    <ul id="subjectsList" class="list"></ul>
+    <footer><span id="status" class="muted"></span></footer>
+  </section>
+</main>
+<script src="../js/header.js"></script>
+<script type="module">
+  import { API, $, j, setStatus } from "../js/common.js";
+  const form = $("#subjectForm"), name = $("#subjectName");
+  const list = $("#subjectsList"), btn = $("#btnLoadSubjects");
+  async function listSubjects(){ const r=await fetch(`${API}/api/subjects`); const data=await j(r);
+    list.innerHTML=""; data.forEach(s=>{ const li=document.createElement("li"); li.textContent=`#${s.id} · ${s.name}`; list.appendChild(li);});
+    setStatus(`Subjects: ${data.length}`,"ok");
+  }
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const r = await fetch(`${API}/api/subjects`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name.value.trim()})});
+    await j(r); name.value=""; listSubjects().catch(()=>{});
+  });
+  btn.addEventListener("click", ()=>listSubjects());
+  listSubjects().catch(()=>{});
+</script>
+</body></html>

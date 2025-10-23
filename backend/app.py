@@ -1,13 +1,28 @@
 from datetime import date
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from fastapi import UploadFile, File
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+from .services.ai_topics import extract_topics_from_pdf_ai
+from .services.ai_cards import generate_cards_from_pdf_ai   
+from .services.pdf_persist import save_topics as save_topics_db, save_cards as save_cards_db
+
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 from sqlalchemy import text
 
+from pathlib import Path
+from dotenv import load_dotenv
+
+    
+
 from .db import get_db
 from .models import Subject, Summary
 from .models import StudyPlan, StudyTask
+from .models import Topic, Card
 from .services.plan import generate_plan
 
 from .schemas import (
@@ -31,6 +46,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+load_dotenv(Path(__file__).with_name(".env"))
+import os
+k = os.getenv("OPENAI_API_KEY", "")
+print("[OpenAI] KEY cargada:", "(vacía)" if not k else f"{k[:7]}...{k[-4:]} (len={len(k)})")
 
 @app.get("/health")
 def health():
@@ -73,6 +93,47 @@ def create_summary(payload: SummaryCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(s)
     return s
+
+@app.post("/api/summaries/{summary_id}/upload-pdf")
+def upload_summary_pdf(summary_id: int, file: UploadFile = File(...)):
+    filename = f"summary_{summary_id}.pdf"
+    path = os.path.join(UPLOAD_DIR, filename)
+    with open(path, "wb") as f:
+        f.write(file.file.read())
+    return {"ok": True, "path": path}
+
+@app.post("/api/summaries/{summary_id}/ai/extract-topics")
+def ai_extract_topics(summary_id: int, db: Session = Depends(get_db)):
+    # validar summary
+    s = db.scalar(select(Summary).where(Summary.id == summary_id))
+    if not s:
+        raise HTTPException(404, "Summary not found")
+
+    pdf_path = os.path.join(UPLOAD_DIR, f"summary_{summary_id}.pdf")
+    if not os.path.exists(pdf_path):
+        raise HTTPException(404, "PDF no subido para este summary.")
+
+    topics = extract_topics_from_pdf_ai(pdf_path)
+    if not topics:
+        return {"ok": True, "topics": 0, "note": "La IA no detectó títulos claros."}
+    save_topics_db(db, summary_id, topics)
+    return {"ok": True, "topics": len(topics)}
+
+@app.post("/api/summaries/{summary_id}/ai/generate-cards")
+def ai_generate_cards(summary_id: int, db: Session = Depends(get_db), per_page: int = 2):
+    s = db.scalar(select(Summary).where(Summary.id == summary_id))
+    if not s:
+        raise HTTPException(404, "Summary not found")
+
+    pdf_path = os.path.join(UPLOAD_DIR, f"summary_{summary_id}.pdf")
+    if not os.path.exists(pdf_path):
+        raise HTTPException(404, "PDF no subido para este summary.")
+
+    cards = generate_cards_from_pdf_ai(pdf_path, per_page=per_page)
+    if not cards:
+        return {"ok": True, "cards": 0, "note": "La IA no generó tarjetas con este texto."}
+    save_cards_db(db, summary_id, cards)
+    return {"ok": True, "cards": len(cards)}
 
 @app.get("/api/summaries", response_model=list[SummaryOut], response_model_by_alias=True)
 def list_summaries(subject_id: int | None = None, db: Session = Depends(get_db)):
@@ -125,6 +186,7 @@ def get_plan_tasks(
 
     return db.execute(stmt).scalars().all()
 
+
 @app.patch("/api/tasks/{task_id}", response_model=StudyTaskOut, response_model_by_alias=True)
 def patch_task(task_id: int, payload: TaskPatchIn, db: Session = Depends(get_db)):
     t = db.scalar(select(StudyTask).where(StudyTask.id == task_id))
@@ -136,3 +198,45 @@ def patch_task(task_id: int, payload: TaskPatchIn, db: Session = Depends(get_db)
     db.commit()
     db.refresh(t)
     return t
+
+@app.get("/api/summaries/{summary_id}/topics")
+def list_topics(summary_id: int, db: Session = Depends(get_db)):
+    # valida que exista el summary
+    s = db.scalar(select(Summary).where(Summary.id == summary_id))
+    if not s:
+        raise HTTPException(404, "Summary not found")
+    rows = db.execute(
+        select(Topic).where(Topic.summary_id == summary_id).order_by(Topic.start_page)
+    ).scalars().all()
+    # devolvemos estructuras simples
+    return [
+        {
+            "id": t.id,
+            "summaryId": t.summary_id,
+            "title": t.title,
+            "startPage": t.start_page,
+            "endPage": t.end_page,
+        }
+        for t in rows
+    ]
+
+
+@app.get("/api/summaries/{summary_id}/cards")
+def list_cards(summary_id: int, db: Session = Depends(get_db)):
+    s = db.scalar(select(Summary).where(Summary.id == summary_id))
+    if not s:
+        raise HTTPException(404, "Summary not found")
+    rows = db.execute(
+        select(Card).where(Card.summary_id == summary_id).order_by(Card.origin_page)
+    ).scalars().all()
+    return [
+        {
+            "id": c.id,
+            "summaryId": c.summary_id,
+            "topicId": c.topic_id,
+            "originPage": c.origin_page,
+            "question": c.question,
+            "answer": c.answer,
+        }
+        for c in rows
+    ]

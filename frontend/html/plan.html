@@ -1,0 +1,90 @@
+<!doctype html><html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan</title>
+<link rel="stylesheet" href="../style.css">
+
+</head><body>
+<div id="site-header"></div>
+<script src="../js/header.js" defer></script>
+<main class="grid" style="padding:16px">
+  <section>
+    <h2>Generar Plan</h2>
+    <form id="planForm">
+      <label>Summary</label><select id="planSummaryId" required></select>
+      <label>Inicio</label><input id="planStartDate" type="date" required>
+      <label>Fin</label><input id="planEndDate" type="date" required>
+      <label>Read Ratio</label><input id="planReadRatio" type="number" step="0.1" min="0.1" max="0.9" value="0.6" required>
+      <label>Buffer Days</label><input id="planBufferDays" type="number" min="0" max="3" value="2" required>
+      <label>Review Quota</label><input id="planReviewQuota" type="number" min="0" max="200" value="20" required>
+      <button>Generar</button>
+    </form>
+
+    <div class="actions">
+      <label>Plan ID</label><input id="tasksPlanId" type="number" placeholder="Ej: 1">
+      <label>Desde</label><input id="tasksFrom" type="date">
+      <label>Hasta</label><input id="tasksTo" type="date">
+      <button id="btnLoadTasks">Ver tareas</button>
+    </div>
+
+    <div id="tasksList" class="cards"></div>
+    <footer><span id="status" class="muted"></span></footer>
+  </section>
+</main>
+<script src="../js/header.js"></script>
+<script type="module">
+  import { API, $, j, setStatus } from "../js/common.js";
+  const sel=$("#planSummaryId"), start=$("#planStartDate"), end=$("#planEndDate"),
+        ratio=$("#planReadRatio"), buf=$("#planBufferDays"), quota=$("#planReviewQuota"),
+        pid=$("#tasksPlanId"), from=$("#tasksFrom"), to=$("#tasksTo"),
+        tasks=$("#tasksList"), btn=$("#btnLoadTasks");
+
+  const today = new Date().toISOString().slice(0,10);
+  start.value = today;
+
+  let summariesCache=[];
+  async function loadSummaries(){
+    const r=await fetch(`${API}/api/summaries`); const data=await j(r); summariesCache=data;
+    sel.innerHTML=""; data.forEach(s=>{ const opt=document.createElement("option"); opt.value=s.id; opt.textContent=`${s.title} (#${s.id})`; sel.appendChild(opt);});
+    if(data.length){ end.value = data[0].examDate; }
+  }
+  sel.addEventListener("change", ()=>{
+    const s = summariesCache.find(x=> x.id === Number(sel.value));
+    if(s) end.value = s.examDate;
+  });
+
+  async function generate(e){
+    e.preventDefault();
+    const payload={summaryId:Number(sel.value),startDate:start.value,endDate:end.value,readRatio:Number(ratio.value),bufferDays:Number(buf.value),reviewQuota:Number(quota.value)};
+    const r=await fetch(`${API}/api/plans/generate`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const data=await j(r);
+    pid.value=data.id; from.value=""; to.value="";
+    await listTasks(); // 👈 mostrar al toque
+    setStatus(`Plan #${data.id} generado`,"ok");
+  }
+
+  async function listTasks(){
+    const id=Number(pid.value); if(!id){ return setStatus("Poné un Plan ID","error"); }
+    const p=new URLSearchParams(); if(from.value) p.set("from_date",from.value); if(to.value) p.set("to_date",to.value);
+    const r=await fetch(`${API}/api/plans/${id}/tasks${p.toString()?`?${p.toString()}`:""}`); const data=await j(r);
+    tasks.innerHTML=""; data.forEach(t=>{
+      const div=document.createElement("div"); div.className="card";
+      let extra=""; if(t.taskType==="read") extra=`pág. ${t.startPage}-${t.endPage}`;
+      if(t.taskType==="review") extra=`quota: ${t.reviewQuota}`;
+      if(t.taskType==="practice") extra=`items: ${t.practiceItems ?? 1}`;
+      div.innerHTML = `
+        <div class="row"><strong>${t.dayDate}</strong>
+          <span class="badge">${t.taskType}</span>
+          <span class="badge ${t.status}">${t.status}</span></div>
+        <div>${t.notes ?? ""}</div>
+        <div class="muted">${extra}</div>
+      `;
+      tasks.appendChild(div);
+    });
+    setStatus(`Tareas: ${data.length}`,"ok");
+  }
+
+  document.getElementById("planForm").addEventListener("submit", e=>generate(e).catch(err=>setStatus(err.message,"error")));
+  btn.addEventListener("click", ()=>listTasks().catch(err=>setStatus(err.message,"error")));
+  loadSummaries().catch(()=>{});
+</script>
+</body></html>
