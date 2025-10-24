@@ -5,21 +5,41 @@
   <title>Study Planner — Inicio</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./theme.css?v=1" />
 </head>
-<body>
+<body class="theme-warm">
+  
   <div id="site-header"></div>
 
   <main class="grid" style="padding:16px">
-    <section>
-      <h2>Bienvenido 👋</h2>
-      <p>Creá materias, resúmenes, generá tu plan y marcá progreso.</p>
-      <div class="actions">
-        <a class="cta" href="./html/subjects.html">Empezar por Subjects</a>
-        <a class="cta" href="./html/summaries.html">Cargar Summary</a>
-        <a class="cta" href="./html/plan.html">Generar Plan</a>
-      </div>
-    </section>
+    <section class="hero">
+  <h1 class="hero-title">Bienvenido a Study Planner</h1>
+  <p class="hero-subtitle">
+    Planificá, estudiá y medí tu progreso.<br>
+    Un proyecto personal, hecho a medida y sin distracciones.
+  </p>
+
+  <p class="hero-desc">
+    Study Planner nació como una herramienta para mi propio uso: crear materias, escribir resúmenes
+    y convertirlos en un plan de estudio realista. Sin feeds ni notificaciones innecesarias: solo
+    lo esencial para estudiar mejor. Todo corre local/privado y está pensado para ser rápido
+    en escritorio y móvil.
+  </p>
+
+  <ul class="hero-features">
+    <li><strong>Subjects:</strong> alta y organización de materias/temas.</li>
+    <li><strong>Summaries:</strong> resúmenes cortos, limpios y buscables.</li>
+    <li><strong>Plan:</strong> generación de planes semanales con prioridades.</li>
+    <li><strong>Progreso:</strong> checklist simple y métricas básicas.</li>
+    <li><strong>Q&A:</strong> tarjetas/preguntas para repasar rápido.</li>
+  </ul>
+
+  <p class="hero-cta-inline">
+    ¿Nuevo acá? <a href="./html/subjects.html">Empezá por <strong>Subjects</strong></a>.
+  </p>
+</section>
   </main>
+  <div class="footer-love">Hecho con cariño :D</div>
 
   <script src="./js/header.js" defer></script>
 </body>

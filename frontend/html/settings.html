@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Study Planner — Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- tus estilos base y tema -->
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../theme.css?v=2" />
+</head>
+<body class="theme-warm">
+  <div id="site-header"></div>
+
+  <main class="grid" style="padding:16px">
+    <section class="settings-card surface">
+      <h2 style="margin-bottom:.4rem">Settings</h2>
+      <p class="text-muted" style="margin-bottom:1rem">Personalizá la apariencia y la experiencia.</p>
+
+      <div class="settings-row">
+        <div>
+          <h3>Dark mode</h3>
+          <p>Usar paleta oscura cálida.</p>
+        </div>
+        <label class="switch" aria-label="Dark mode">
+          <input id="toggle-dark" type="checkbox" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <div>
+          <h3>Grain (textura)</h3>
+          <p>Textura sutil sobre el fondo mesh.</p>
+        </div>
+        <label class="switch" aria-label="Grain">
+          <input id="toggle-grain" type="checkbox" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <div>
+          <h3>Reduce motion</h3>
+          <p>Limitar animaciones y transiciones.</p>
+        </div>
+        <label class="switch" aria-label="Reduce motion">
+          <input id="toggle-motion" type="checkbox" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <script src="../js/header.js" defer></script>
+  <script>
+    // Claves de almacenamiento
+    const KEY_THEME = "sp_theme";      // "dark" | "light"
+    const KEY_GRAIN = "sp_grain";      // "on" | "off"
+    const KEY_MOTION = "sp_motion";    // "on" | "reduced"
+
+    // Controles
+    const elDark = document.getElementById("toggle-dark");
+    const elGrain = document.getElementById("toggle-grain");
+    const elMotion = document.getElementById("toggle-motion");
+
+    // Aplicar estado al body según prefs guardadas
+    function applyPrefs(){
+      const theme = localStorage.getItem(KEY_THEME) || "light";
+      const grain = localStorage.getItem(KEY_GRAIN) || "on";
+      const motion = localStorage.getItem(KEY_MOTION) || "on";
+
+      document.body.classList.toggle("theme-dark", theme === "dark");
+      document.body.classList.toggle("no-grain", grain === "off");
+      document.body.classList.toggle("reduce-motion", motion === "reduced");
+
+      elDark.checked = theme === "dark";
+      elGrain.checked = grain !== "off";
+      elMotion.checked = motion === "reduced";
+    }
+
+    // Guardar cambios
+    elDark.addEventListener("change", () => {
+      localStorage.setItem(KEY_THEME, elDark.checked ? "dark" : "light");
+      applyPrefs();
+    });
+    elGrain.addEventListener("change", () => {
+      localStorage.setItem(KEY_GRAIN, elGrain.checked ? "on" : "off");
+      applyPrefs();
+    });
+    elMotion.addEventListener("change", () => {
+      localStorage.setItem(KEY_MOTION, elMotion.checked ? "reduced" : "on");
+      applyPrefs();
+    });
+
+    // Inicializar al cargar
+    document.addEventListener("DOMContentLoaded", applyPrefs);
+
+    // Sugerencia: si querés que el dark mode/grain/motion se apliquen
+    // AUTOMÁTICAMENTE en TODAS las páginas, podés leer estas prefs
+    // también en header.js y sumar:
+    //   - document.body.classList.toggle("theme-dark", localStorage.getItem("sp_theme")==="dark");
+    //   - document.body.classList.toggle("no-grain", localStorage.getItem("sp_grain")==="off");
+    //   - document.body.classList.toggle("reduce-motion", localStorage.getItem("sp_motion")==="reduced");
+  </script>
+</body>
+</html>

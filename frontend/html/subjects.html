@@ -1,39 +1,86 @@
-<!doctype html><html lang="es"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Subjects</title>
-<link rel="stylesheet" href="../style.css">
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Materias</title>
 
-</head><body>
-<div id="site-header"></div>
-<script src="../js/header.js" defer></script>
-<main class="grid" style="padding:16px">
-  <section>
-    <h2>Subjects</h2>
-    <form id="subjectForm">
-      <label>Nombre</label>
-      <input id="subjectName" required>
-      <button>Crear</button>
-    </form>
-    <div class="actions"><button id="btnLoadSubjects">Refrescar</button></div>
-    <ul id="subjectsList" class="list"></ul>
-    <footer><span id="status" class="muted"></span></footer>
-  </section>
-</main>
-<script src="../js/header.js"></script>
-<script type="module">
-  import { API, $, j, setStatus } from "../js/common.js";
-  const form = $("#subjectForm"), name = $("#subjectName");
-  const list = $("#subjectsList"), btn = $("#btnLoadSubjects");
-  async function listSubjects(){ const r=await fetch(`${API}/api/subjects`); const data=await j(r);
-    list.innerHTML=""; data.forEach(s=>{ const li=document.createElement("li"); li.textContent=`#${s.id} · ${s.name}`; list.appendChild(li);});
-    setStatus(`Subjects: ${data.length}`,"ok");
-  }
-  form.addEventListener("submit", async e => {
-    e.preventDefault();
-    const r = await fetch(`${API}/api/subjects`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name.value.trim()})});
-    await j(r); name.value=""; listSubjects().catch(()=>{});
-  });
-  btn.addEventListener("click", ()=>listSubjects());
-  listSubjects().catch(()=>{});
-</script>
-</body></html>
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../theme.css?v=7" />
+
+  <style>
+    /* Ajuste suave solo para esta vista */
+    .subjects-card{
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--space-5);
+      box-shadow: var(--shadow);
+      max-width: 720px;
+      margin: 16px auto;
+    }
+    .form-row{ display: grid; grid-template-columns: 1fr auto; gap: .75rem; }
+    @media (max-width:640px){ .form-row{ grid-template-columns: 1fr; } }
+    .status-line{ margin-top:.5rem; min-height:1.25rem; color: var(--text-muted); }
+    .status-ok{ color:#2D5E2D; }
+    .status-err{ color:#8C3E3D; }
+  </style>
+</head>
+<body class="theme-warm">
+  <div id="site-header"></div>
+
+  <main class="grid" style="padding:16px">
+    <section class="subjects-card">
+      <h2>Materias</h2>
+      <p class="text-muted" style="margin:.2rem 0 1rem">
+        Creá nuevas materias. Podrás verlas y administrarlas desde otras secciones.
+      </p>
+
+      <!-- Alta de materia (sin listado ni refrescar) -->
+      <form id="subjectForm" class="form" style="padding:0; border:0; box-shadow:none;">
+        <div class="field">
+          <label class="label" for="subjectName">Nombre de la materia</label>
+          <div class="form-row">
+            <input id="subjectName" class="input" required minlength="2" placeholder="Ej.: Álgebra II" />
+            <button class="btn" id="btnCreate">Crear materia</button>
+          </div>
+          <div id="status" class="status-line"></div>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="../js/header.js" defer></script>
+  <script type="module">
+    import { API, $, j } from "../js/common.js";
+
+    const form = $("#subjectForm");
+    const nameEl = $("#subjectName");
+    const statusEl = $("#status");
+
+    function setStatus(msg, type){
+      statusEl.textContent = msg || "";
+      statusEl.className = "status-line" + (type ? " status-" + type : "");
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = nameEl.value.trim();
+      if (!name) { setStatus("Ingresá un nombre válido.", "err"); return; }
+
+      try{
+        const r = await fetch(`${API}/api/subjects`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name })
+        });
+        await j(r);
+        nameEl.value = "";
+        setStatus("Materia creada correctamente.", "ok");
+      }catch(err){
+        setStatus("No se pudo crear la materia.", "err");
+      }
+    });
+  </script>
+</body>
+</html>

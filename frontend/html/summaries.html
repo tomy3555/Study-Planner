@@ -1,54 +1,209 @@
-<!doctype html><html lang="es"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Summaries</title>
-<link rel="stylesheet" href="../style.css">
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resúmenes</title>
 
-</head><body>
-<div id="site-header"></div>
-<script src="../js/header.js" defer></script>
-<main class="grid" style="padding:16px">
-  <section>
-    <h2>Summaries</h2>
-    <form id="summaryForm">
-      <label>Subject</label>
-      <select id="summarySubjectId" required></select>
-      <label>Título</label>
-      <input id="summaryTitle" required>
-      <label>Páginas</label>
-      <input id="summaryPages" type="number" min="1" required>
-      <label>Fecha examen</label>
-      <input id="summaryExamDate" type="date" required>
-      <button>Crear</button>
-    </form>
-    <div class="actions">
-      <button id="btnLoadSummaries">Refrescar</button>
-    </div>
-    <ul id="summariesList" class="list"></ul>
-    <footer><span id="status" class="muted"></span></footer>
-  </section>
-</main>
-<script src="../js/header.js"></script>
-<script type="module">
-  import { API, $, j, setStatus } from "../js/common.js";
-  const sSel = $("#summarySubjectId"), sForm=$("#summaryForm");
-  const title=$("#summaryTitle"), pages=$("#summaryPages"), date=$("#summaryExamDate");
-  const sList=$("#summariesList"), btn=$("#btnLoadSummaries");
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../theme.css?v=8" />
 
-  async function listSubjects(){ const r=await fetch(`${API}/api/subjects`); const data=await j(r);
-    sSel.innerHTML=""; data.forEach(s=>{ const opt=document.createElement("option"); opt.value=s.id; opt.textContent=`${s.name} (#${s.id})`; sSel.appendChild(opt);});
+  <style>
+    /* Vista Resúmenes (scoped y sobria) */
+    .summaries-card{
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--space-5);
+      box-shadow: var(--shadow);
+      max-width: 900px;
+      margin: 16px auto;
+    }
+    .row-2{ display:grid; grid-template-columns: 1fr auto; gap: .75rem; }
+    .grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    @media (max-width:700px){
+      .row-2{ grid-template-columns: 1fr; }
+      .grid-2{ grid-template-columns: 1fr; }
+    }
+
+    /* Listado en tarjetas */
+    .summaries-grid{
+      list-style:none; padding:0; margin: 1rem 0 0;
+      display:grid; gap:.75rem;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    }
+    .summary-item{
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .9rem;
+      display:flex; flex-direction:column; gap:.35rem;
+    }
+    .summary-title{ font-weight:700; color:var(--text); }
+    .summary-meta{ color: var(--text-muted); font-size:.9rem; }
+    .summary-meta b{ color: var(--text); font-weight:600; }
+
+    /* Vacío elegante */
+    .empty{
+      margin-top: .75rem; color: var(--text-muted);
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: .9rem; text-align:center;
+    }
+  </style>
+</head>
+<body class="theme-warm">
+  <div id="site-header"></div>
+
+  <main class="grid" style="padding:16px">
+    <section class="summaries-card">
+      <h2>Resúmenes</h2>
+      <p class="text-muted" style="margin:.2rem 0 1rem">
+        Creá resúmenes cortos y claros. El listado se actualiza automáticamente al guardar.
+      </p>
+
+      <!-- Alta de resumen -->
+      <form id="summaryForm" class="form" style="padding:0; border:0; box-shadow:none;">
+        <div class="field">
+          <label class="label" for="summarySubjectId">Materia</label>
+          <select id="summarySubjectId" class="input" required></select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="summaryTitle">Título</label>
+          <input id="summaryTitle" class="input" required minlength="2" placeholder="Ej.: Derivadas — reglas básicas" />
+        </div>
+
+        <div class="field grid-2">
+          <div>
+            <label class="label" for="summaryPages">Páginas</label>
+            <input id="summaryPages" class="input" type="number" min="1" required placeholder="Ej.: 12" />
+          </div>
+          <div>
+            <label class="label" for="summaryExamDate">Fecha de examen</label>
+            <input id="summaryExamDate" class="input" type="date" required />
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div></div>
+          <button class="btn">Guardar resumen</button>
+        </div>
+        <div id="status" class="help" aria-live="polite" style="min-height:1.2rem"></div>
+      </form>
+
+      <!-- Listado (sin IDs a la vista) -->
+      <ul id="summariesList" class="summaries-grid" aria-live="polite" aria-busy="false"></ul>
+      <div id="emptyState" class="empty" style="display:none">Todavía no hay resúmenes. ¡Creá el primero arriba!</div>
+    </section>
+  </main>
+
+  <script src="../js/header.js" defer></script>
+  <script type="module">
+    import { API, $, j } from "../js/common.js";
+
+    const sSel = $("#summarySubjectId");
+    const sForm = $("#summaryForm");
+    const title = $("#summaryTitle");
+    const pages = $("#summaryPages");
+    const date  = $("#summaryExamDate");
+    const sList = $("#summariesList");
+    const empty = $("#emptyState");
+    const statusEl = $("#status");
+
+    function formatDatePretty(value){
+  if (!value) return "—";
+  // soporta "YYYY-MM-DD" o ISO completo
+  const d = new Date(value);
+  if (isNaN(d)) return String(value); // si ya viene como string "11 de octubre…"
+  return d.toLocaleDateString("es-ES", { day:"numeric", month:"long", year:"numeric" });
+}
+
+    // cache simple id -> nombre de materia
+    const subjectsById = new Map();
+
+    function setStatus(msg, type){
+      statusEl.textContent = msg || "";
+      statusEl.className = "help" + (type ? " msg-" + type : "");
+    }
+
+    async function loadSubjects(){
+      const r = await fetch(`${API}/api/subjects`);
+      const data = await j(r);
+      sSel.innerHTML = "";
+      subjectsById.clear();
+      data.forEach(s => {
+        subjectsById.set(Number(s.id), s.name);
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = s.name; // sin mostrar #id
+        sSel.appendChild(opt);
+      });
+    }
+
+    function renderSummaries(items){
+  sList.innerHTML = "";
+  if (!items || items.length === 0){
+    empty.style.display = "block";
+    sList.setAttribute("aria-busy","false");
+    return;
   }
-  async function listSummaries(){ const r=await fetch(`${API}/api/summaries`); const data=await j(r);
-    sList.innerHTML=""; data.forEach(s=>{ const li=document.createElement("li");
-      li.innerHTML = `<strong>#${s.id}</strong> · ${s.title} · subj ${s.subjectId} · págs ${s.pages} · exam ${s.examDate}`; sList.appendChild(li);
-    }); setStatus(`Summaries: ${data.length}`,"ok");
+  empty.style.display = "none";
+
+  for (const s of items){
+    const li = document.createElement("li");
+    li.className = "summary-item";
+
+    const subjectName = subjectsById.get(Number(s.subjectId)) || "Sin materia";
+    const dateTxt  = formatDatePretty(s.examDate);
+
+    li.innerHTML = `
+      <div class="summary-title">${s.title}</div>
+      <div class="summary-meta">
+        <b>Materia:</b> ${subjectName}<br>
+        <b>Examen:</b> ${dateTxt}
+      </div>
+    `;
+    sList.appendChild(li);
   }
-  sForm.addEventListener("submit", async e=>{
-    e.preventDefault();
-    const payload={subjectId:Number(sSel.value),title:title.value.trim(),pages:Number(pages.value),examDate:date.value};
-    const r=await fetch(`${API}/api/summaries`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    await j(r); title.value=""; pages.value=""; date.value=""; listSummaries();
-  });
-  btn.addEventListener("click", ()=>listSummaries());
-  listSubjects().then(listSummaries);
-</script>
-</body></html>
+  sList.setAttribute("aria-busy","false");
+}
+
+
+    async function loadSummaries(){
+      sList.setAttribute("aria-busy","true");
+      const r = await fetch(`${API}/api/summaries`);
+      const data = await j(r);
+      const items = Array.isArray(data) ? data : (data.items || []);
+      renderSummaries(items);
+    }
+
+    sForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        subjectId: Number(sSel.value),
+        title: title.value.trim(),
+        pages: Number(pages.value),
+        examDate: date.value
+      };
+      if (!payload.title) { setStatus("Ingresá un título válido.", "danger"); return; }
+
+      try{
+        const r = await fetch(`${API}/api/summaries`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        await j(r);
+        title.value = ""; pages.value = ""; date.value = "";
+        setStatus("Resumen guardado correctamente.", "success");
+        loadSummaries().catch(()=>{});
+      }catch(err){
+        setStatus("No se pudo guardar el resumen.", "danger");
+      }
+    });
+
+    // Inicial
+    loadSubjects().then(loadSummaries).catch(()=>{});
+  </script>
+</body>
+</html>
