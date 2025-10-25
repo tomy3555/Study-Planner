@@ -207,6 +207,13 @@ advBtn.addEventListener("click", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+
+      // después de recibir `data` del POST /plans/generate
+      const mapRaw = localStorage.getItem("sp_last_plan_by_summary");
+      const map = mapRaw ? JSON.parse(mapRaw) : {};
+      map[String(payload.summaryId)] = data.id;
+      localStorage.setItem("sp_last_plan_by_summary", JSON.stringify(map));
+
       const data = await j(r);
 
       lastPlanId = data.id;   // guardamos internamente

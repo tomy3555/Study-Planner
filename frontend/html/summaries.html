@@ -91,6 +91,32 @@
         <div id="status" class="help" aria-live="polite" style="min-height:1.2rem"></div>
       </form>
 
+      <hr style="border:0; border-top:1px solid var(--border); margin:1rem 0">
+
+<h3>PDF del resumen</h3>
+<p class="text-muted" style="margin:.2rem 0 1rem">Asociá un PDF al resumen para habilitar extracción de Topics y generación de cards en Q&A.</p>
+
+<form id="formUpload" enctype="multipart/form-data" class="form" style="padding:0; border:0; box-shadow:none;">
+  <div class="field">
+    <label class="label" for="summaryIdForPdf">Resumen</label>
+    <select id="summaryIdForPdf" class="input" required></select>
+  </div>
+  <div class="field">
+    <label class="label" for="pdfFile">Archivo PDF</label>
+    <input id="pdfFile" class="input" type="file" accept="application/pdf" required />
+  </div>
+  <div class="row-2">
+    <div id="uploadStatus" class="help" style="min-height:1.2rem"></div>
+    <button class="btn">Subir PDF</button>
+  </div>
+</form>
+
+<div class="actions" style="margin-top:.75rem">
+  <button id="btnExtractTopics" class="btn btn-outline">🔎 Extraer Topics (opcional)</button>
+  <button id="btnListTopics" class="btn btn-ghost">Ver Topics</button>
+</div>
+<div id="topicsResults" class="cards" style="margin-top:.6rem"></div>
+
       <!-- Listado (sin IDs a la vista) -->
       <ul id="summariesList" class="summaries-grid" aria-live="polite" aria-busy="false"></ul>
       <div id="emptyState" class="empty" style="display:none">Todavía no hay resúmenes. ¡Creá el primero arriba!</div>
@@ -109,6 +135,65 @@
     const sList = $("#summariesList");
     const empty = $("#emptyState");
     const statusEl = $("#status");
+
+    const selPdf = $("#summaryIdForPdf");
+const inputPdf = $("#pdfFile");
+const formUpload = $("#formUpload");
+const uploadStatus = $("#uploadStatus");
+const topicsResults = $("#topicsResults");
+
+function uStatus(msg, type){ uploadStatus.textContent = msg || ""; }
+
+async function syncSummariesForPdf(){
+  const r = await fetch(`${API}/api/summaries`); const data = await j(r);
+  selPdf.innerHTML = "";
+  (data||[]).forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = s.title || "Sin título";
+    selPdf.appendChild(opt);
+  });
+}
+formUpload.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const sid = Number(selPdf.value);
+  if (!sid || !inputPdf.files[0]) return uStatus("Elegí resumen y archivo PDF", "error");
+  const fd = new FormData(); fd.append("file", inputPdf.files[0]);
+  try{
+    const r = await fetch(`${API}/api/summaries/${sid}/upload-pdf`, { method:"POST", body: fd });
+    await j(r);
+    uStatus("PDF subido ✔", "ok");
+  }catch(err){ uStatus(err.message || "Error al subir", "error"); }
+});
+
+$("#btnExtractTopics").addEventListener("click", async () => {
+  const sid = Number(selPdf.value); if(!sid) return uStatus("Elegí un resumen", "error");
+  try{
+    const r = await fetch(`${API}/api/summaries/${sid}/ai/extract-topics`, { method:"POST" });
+    const data = await j(r);
+    uStatus(`Topics creados: ${data.topics}`, "ok");
+    await listTopics();
+  }catch(err){ uStatus(err.message, "error"); }
+});
+
+async function listTopics(){
+  const sid = Number(selPdf.value); if(!sid) return;
+  const r = await fetch(`${API}/api/summaries/${sid}/topics`);
+  const data = await j(r);
+  topicsResults.innerHTML = "";
+  if (!data.length){
+    const d = document.createElement("div"); d.className="card"; d.textContent="No hay topics aún.";
+    topicsResults.appendChild(d); return;
+  }
+  data.forEach(t => {
+    const d = document.createElement("div"); d.className="card";
+    d.innerHTML = `<strong>${t.title}</strong><div class="muted">pág. ${t.startPage}–${t.endPage}</div>`;
+    topicsResults.appendChild(d);
+  });
+}
+
+// Llenar selects cuando cargue la página
+syncSummariesForPdf().catch(()=>{});
 
     function formatDatePretty(value){
   if (!value) return "—";

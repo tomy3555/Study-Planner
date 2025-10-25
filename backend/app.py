@@ -3,6 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from fastapi import UploadFile, File
+from fastapi import Query, Response
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -240,3 +241,66 @@ def list_cards(summary_id: int, db: Session = Depends(get_db)):
         }
         for c in rows
     ]
+
+@app.get("/api/summaries/{summary_id}/plans", response_model=list[StudyPlanOut], response_model_by_alias=True)
+def list_plans_for_summary(summary_id: int, db: Session = Depends(get_db)):
+    # validar que exista el summary
+    s = db.scalar(select(Summary).where(Summary.id == summary_id))
+    if not s:
+        raise HTTPException(404, "Summary not found")
+
+    # ordenar por created_at DESC si existe; si no, por id DESC
+    order_col = getattr(StudyPlan, "created_at", StudyPlan.id)
+    rows = db.execute(
+        select(StudyPlan)
+        .where(StudyPlan.summary_id == summary_id)
+        .order_by(order_col.desc())
+    ).scalars().all()
+    return rows
+
+@app.get("/api/plans/latest", response_model=StudyPlanOut | None, response_model_by_alias=True)
+def get_latest_plan(
+    summary_id: int | None = Query(default=None, alias="summary_id"),
+    summaryId: int | None = Query(default=None, alias="summaryId"),
+    db: Session = Depends(get_db),
+    response: Response = None,
+):
+    sid = summary_id or summaryId
+    if not sid:
+        raise HTTPException(400, "summaryId is required")
+
+    # validar que exista el summary
+    s = db.scalar(select(Summary).where(Summary.id == sid))
+    if not s:
+        raise HTTPException(404, "Summary not found")
+
+    order_col = getattr(StudyPlan, "created_at", StudyPlan.id)
+    plan = db.execute(
+        select(StudyPlan)
+        .where(StudyPlan.summary_id == sid)
+        .order_by(order_col.desc())
+        .limit(1)
+    ).scalars().first()
+
+    if not plan:
+        # 204 No Content si el summary existe pero no tiene planes
+        response.status_code = 204
+        return None
+
+    return plan
+
+@app.get("/api/plans", response_model=list[StudyPlanOut], response_model_by_alias=True)
+def list_plans(
+    summary_id: int | None = Query(default=None, alias="summary_id"),
+    summaryId: int | None = Query(default=None, alias="summaryId"),
+    db: Session = Depends(get_db),
+):
+    sid = summary_id or summaryId
+    order_col = getattr(StudyPlan, "created_at", StudyPlan.id)
+
+    stmt = select(StudyPlan).order_by(order_col.desc())
+    if sid:
+        stmt = stmt.where(StudyPlan.summary_id == sid)
+
+    rows = db.execute(stmt).scalars().all()
+    return rows

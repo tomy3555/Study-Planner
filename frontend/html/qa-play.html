@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Q&A — Modo juego</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../theme.css?v=11" />
+  <style>
+    .qa-play-card{
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--space-5);
+      box-shadow: var(--shadow);
+      max-width: 900px;
+      margin: 16px auto;
+    }
+    .qa-top{
+      display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem;
+    }
+    .qa-meta{ color: var(--text-muted); font-size:.95rem; }
+    .qa-progress{ font-weight:700; }
+
+    .qa-card{
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem;
+    }
+    .qa-q{ font-weight:700; color:var(--text); margin-bottom:.5rem; }
+    .qa-a{
+      border-top:1px solid var(--border);
+      margin-top:.6rem; padding-top:.6rem;
+      max-height: 0; opacity: 0; overflow: hidden;
+      transform: translateY(-4px);
+      transition: max-height .35s ease, opacity .25s ease, transform .25s ease;
+    }
+    .qa-a.show{
+      max-height: 300px; /* suficiente para respuestas cortas */
+      opacity: 1; transform: translateY(0);
+    }
+
+    .qa-actions{
+      display:flex; gap:.5rem; align-items:center; justify-content:flex-end;
+      margin-top:.75rem; flex-wrap: wrap;
+    }
+    .qa-empty{
+      margin-top:.75rem; color: var(--text-muted);
+      background: var(--bg); border:1px solid var(--border);
+      border-radius:12px; padding:.9rem; text-align:center;
+    }
+  </style>
+</head>
+<body class="theme-warm">
+  <div id="site-header"></div>
+
+  <main class="grid" style="padding:16px">
+    <section class="qa-play-card">
+      <div class="qa-top">
+        <div class="qa-meta">
+          <a id="backLink" href="./qa.html">← Volver a Q&A</a>
+        </div>
+        <div class="qa-progress" id="progress">0 / 0</div>
+      </div>
+
+      <div id="stage">
+        <div class="qa-empty">Cargando tarjetas…</div>
+      </div>
+
+      <div class="qa-actions" id="controls" style="display:none">
+        <button class="btn btn-outline" id="revealBtn">Mostrar respuesta (Espacio)</button>
+        <button class="btn" id="nextBtn">Siguiente (→)</button>
+      </div>
+      <div class="help" id="hint" style="margin-top:.25rem">Tip: usá <strong>Espacio</strong> para revelar y <strong>→</strong> para siguiente.</div>
+    </section>
+  </main>
+
+  <script src="../js/header.js" defer></script>
+  <script type="module">
+    import { API, $, j } from "../js/common.js";
+
+    const stage = $("#stage");
+    const progressEl = $("#progress");
+    const revealBtn = $("#revealBtn");
+    const nextBtn = $("#nextBtn");
+    const controls = $("#controls");
+    const backLink = $("#backLink");
+
+    // Leer summaryId de la URL
+    const params = new URLSearchParams(location.search);
+    const summaryId = Number(params.get("summaryId") || "");
+    if (!summaryId){
+      stage.innerHTML = '<div class="qa-empty">Elegí un resumen en <a href="./qa.html">Q&A</a> para jugar.</div>';
+      controls.style.display = "none";
+    } else {
+      backLink.href = `./qa.html?summaryId=${summaryId}`;
+      loadCards(summaryId).catch(()=>{});
+    }
+
+    let cards = [];
+    let idx = 0;
+    let revealed = false;
+
+    async function loadCards(sid){
+      const r = await fetch(`${API}/api/summaries/${sid}/cards`);
+      const data = await j(r);
+      cards = Array.isArray(data) ? data.slice() : [];
+      if (!cards.length){
+        stage.innerHTML = '<div class="qa-empty">No hay cards para este resumen. Volvé a <a href="./qa.html">Q&A</a> y generá algunas.</div>';
+        controls.style.display = "none";
+        return;
+      }
+      // barajar un poco
+      cards.sort(()=> Math.random() - 0.5);
+      idx = 0;
+      controls.style.display = "flex";
+      render();
+    }
+
+    function render(){
+      const c = cards[idx];
+      progressEl.textContent = `${idx+1} / ${cards.length}`;
+      stage.innerHTML = `
+        <div class="qa-card">
+          <div class="qa-q">${c.question}</div>
+          <div class="qa-a" id="answer"><strong>Respuesta:</strong> ${c.answer}</div>
+          <div class="muted" style="margin-top:.35rem">${c.originPage ? "pág. " + c.originPage : ""}</div>
+        </div>
+      `;
+      revealed = false;
+      revealBtn.disabled = false;
+      revealBtn.textContent = "Mostrar respuesta (Espacio)";
+      nextBtn.textContent = idx < cards.length-1 ? "Siguiente (→)" : "Terminar";
+      $("#answer").classList.remove("show");
+    }
+
+    function reveal(){
+      if (revealed) return;
+      const a = $("#answer");
+      a.classList.add("show");
+      revealed = true;
+      revealBtn.disabled = true;
+      revealBtn.textContent = "Respuesta mostrada";
+    }
+
+    function next(){
+      if (idx < cards.length - 1){
+        idx++;
+        render();
+      } else {
+        stage.innerHTML = '<div class="qa-empty">¡Listo! Repasaste todas las cards. Volvé a <a href="./qa.html">Q&A</a> o jugá otra vez.</div>';
+        controls.style.display = "none";
+      }
+    }
+
+    revealBtn.addEventListener("click", reveal);
+    nextBtn.addEventListener("click", next);
+
+    // Atajos: espacio = revelar, flecha derecha = siguiente
+    window.addEventListener("keydown", (e) => {
+      if (e.key === " "){ e.preventDefault(); reveal(); }
+      if (e.key === "ArrowRight"){ e.preventDefault(); next(); }
+    });
+  </script>
+</body>
+</html>

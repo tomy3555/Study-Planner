@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Q&A — Cards</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="../theme.css?v=10" />
+  <style>
+    .qa-card{ background:var(--bg-soft); border:1px solid var(--border); border-radius:var(--radius);
+      padding:var(--space-5); box-shadow:var(--shadow); max-width:900px; margin:16px auto; }
+    .row-3{ display:grid; grid-template-columns: 1fr auto auto; gap:.5rem; align-items:end; }
+    @media (max-width:780px){ .row-3{ grid-template-columns: 1fr 1fr; } }
+    @media (max-width:520px){ .row-3{ grid-template-columns: 1fr; } }
+    .cards{ display:grid; gap:.75rem; }
+  </style>
+</head>
+<body class="theme-warm">
+  <div id="site-header"></div>
+  <main class="grid" style="padding:16px">
+    <section class="qa-card">
+      <h2>Q&A — Tarjetas</h2>
+      <p class="text-muted" style="margin:.2rem 0 1rem">Generá y revisá tarjetas a partir de tus resúmenes.</p>
+
+      <form id="qaForm" class="form" style="padding:0; border:0; box-shadow:none;">
+        <div class="field">
+          <label class="label" for="qaSummaryId">Resumen</label>
+          <select id="qaSummaryId" class="input" required></select>
+        </div>
+
+        <div class="row-3">
+          <div>
+            <label class="label" for="perPage">Cards por página (PDF)</label>
+            <input id="perPage" class="input" type="number" min="1" max="5" value="2" />
+          </div>
+          <button type="button" id="btnGenCards" class="btn">🧠 Generar cards</button>
+          <button type="button" id="btnGoPlay" class="btn btn-outline">Jugar Q&A</button>
+
+        </div>
+        <div id="status" class="help" style="min-height:1.2rem"></div>
+      </form>
+
+      <div id="results" class="cards" style="margin-top:1rem"></div>
+    </section>
+  </main>
+
+  <script src="../js/header.js" defer></script>
+  <script type="module">
+    import { API, $, j, setStatus } from "../js/common.js";
+
+const sel = $("#qaSummaryId");
+const per = $("#perPage");
+const statusEl = $("#status");
+const goPlayBtn = document.getElementById("btnGoPlay");
+
+function status(msg, type){ 
+  statusEl.textContent = msg || ""; 
+  if (setStatus) try{ setStatus(msg, type) }catch{} 
+}
+
+async function loadSummaries(){
+  const r = await fetch(`${API}/api/summaries`);
+  const data = await j(r);
+  sel.innerHTML = "";
+  (data || []).forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = s.title || "Sin título";
+    sel.appendChild(opt);
+  });
+  status(`Resúmenes: ${(data||[]).length}`, "ok");
+}
+
+async function genCards(){
+  const sid = Number(sel.value);
+  const perVal = Number(per.value) || 2;
+  if(!sid) return status("Elegí un resumen", "error");
+  const r = await fetch(`${API}/api/summaries/${sid}/ai/generate-cards?per_page=${perVal}`, { method:"POST" });
+  const data = await j(r);
+  status(`Cards generadas: ${data.cards}`, "ok");
+  // opcional: redirigir
+  // location.href = `./qa-play.html?summaryId=${sid}`;
+}
+
+document.getElementById("btnGenCards").addEventListener("click", () => 
+  genCards().catch(err=>status(err.message,"error"))
+);
+
+goPlayBtn.addEventListener("click", () => {
+  const sid = Number(sel.value);
+  if(!sid) return status("Elegí un resumen", "error");
+  location.href = `./qa-play.html?summaryId=${sid}`;
+});
+
+loadSummaries().catch(()=>{});
+  </script>
+</body>
+</html>
