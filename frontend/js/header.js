@@ -57,3 +57,28 @@ document.body.classList.toggle("reduce-motion", m === "reduced");
 
   console.log("[header] mounted. classes:", mount.className, first && first.className);
 })();
+
+(() => {
+  const mount = document.getElementById("site-sidebar");
+  if (!mount) return;
+  const inHtmlDir = location.pathname.includes("/html/");
+  const PREFIX = inHtmlDir ? ".." : ".";
+  fetch(`${PREFIX}/partials/sidebar.html`)
+    .then(r => r.text())
+    .then(html => {
+      mount.innerHTML = html;
+      // data-href -> href
+      mount.querySelectorAll("[data-href]").forEach(a => {
+        const path = a.getAttribute("data-href");
+        a.setAttribute("href", `${PREFIX}/${path}`);
+      });
+      // marcar activo
+      const here = location.pathname.replace(/\\/g, "/");
+      mount.querySelectorAll("a[href]").forEach(a => {
+        const href = a.getAttribute("href");
+        if (here.endsWith(href)) a.classList.add("active");
+      });
+    })
+    .catch(() => {});
+})();
+

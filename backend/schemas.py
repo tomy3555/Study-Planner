@@ -1,5 +1,7 @@
 from datetime import date, datetime
-from pydantic import BaseModel, ConfigDict, conint, condecimal
+from pydantic import BaseModel, ConfigDict, conint, condecimal, EmailStr, Field
+from typing import Optional
+from datetime import datetime
 
 
 # ============================
@@ -84,3 +86,27 @@ class StudyTaskOut(CamelModel):
 
 class TaskPatchIn(CamelModel):
     status: str  # "pending" | "done" | "skipped"   
+
+class RegisterIn(BaseModel):
+        email: EmailStr
+        password: str = Field(min_length=8, max_length=128)
+        name: Optional[str] = None
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserOut(BaseModel):
+    id: int
+    email: EmailStr
+    name: Optional[str] = None
+    isVerified: bool
+    createdAt: datetime
+
+    class Config:
+        from_attributes = True  # para construir desde ORM
+
+class TokenOut(BaseModel):
+    accessToken: str
+    tokenType: str = "bearer"
+    user: UserOut

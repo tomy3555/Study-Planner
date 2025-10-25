@@ -128,7 +128,7 @@ class StudyTask(Base):
     status: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
-        server_default="pending"  # 👈 string, no enum Python
+        server_default="pending"  
     )
 
     # Relaciones
@@ -165,5 +165,21 @@ class Card(Base):
         ForeignKey("topics.id", ondelete="SET NULL"), nullable=True
     )
     origin_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    question: Mapped[str] = mapped_column(Text, nullable=False)  # 👈 Text de SQLAlchemy
-    answer: Mapped[str] = mapped_column(Text, nullable=False)    # 👈 Text de SQLAlchemy
+    question: Mapped[str] = mapped_column(Text, nullable=False)  
+    answer: Mapped[str] = mapped_column(Text, nullable=False)    
+
+# ======================
+# Users
+# ======================
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=False)
+    # email_norm es columna generada en MySQL; en ORM la definimos solo para lectura
+    email_norm: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    is_verified: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=func.current_timestamp())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=func.current_timestamp())

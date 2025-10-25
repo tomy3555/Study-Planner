@@ -1,6 +1,8 @@
 from datetime import date
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
+import jwt
 import os
 from fastapi import UploadFile, File
 from fastapi import Query, Response
@@ -12,7 +14,7 @@ from .services.ai_cards import generate_cards_from_pdf_ai
 from .services.pdf_persist import save_topics as save_topics_db, save_cards as save_cards_db
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func as sa_func
 from sqlalchemy import text
 
 from pathlib import Path
@@ -21,16 +23,19 @@ from dotenv import load_dotenv
     
 
 from .db import get_db
-from .models import Subject, Summary
+from .models import Subject, Summary, User
 from .models import StudyPlan, StudyTask
 from .models import Topic, Card
 from .services.plan import generate_plan
+from .auth import hash_password, verify_password, create_access_token, decode_token
+
 
 from .schemas import (
     SubjectCreate, SubjectOut,
     SummaryCreate, SummaryOut, 
     PlanGenerateIn, StudyPlanOut, 
-    StudyTaskOut, TaskPatchIn
+    StudyTaskOut, TaskPatchIn, RegisterIn, LoginIn, 
+    UserOut, TokenOut
 )
 
 app = FastAPI(title="StudyPlanner ")
@@ -52,6 +57,26 @@ load_dotenv(Path(__file__).with_name(".env"))
 import os
 k = os.getenv("OPENAI_API_KEY", "")
 print("[OpenAI] KEY cargada:", "(vacía)" if not k else f"{k[:7]}...{k[-4:]} (len={len(k)})")
+
+security = HTTPBearer()
+
+def get_current_user(
+    creds: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> User:
+    token = creds.credentials
+    try:
+        payload = decode_token(token)
+        user_id = int(payload.get("sub"))
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuario no encontrado")
+    return user
 
 @app.get("/health")
 def health():
@@ -304,3 +329,65 @@ def list_plans(
 
     rows = db.execute(stmt).scalars().all()
     return rows
+
+def _normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+@app.post("/auth/register", response_model=UserOut, status_code=201)
+def register(payload: RegisterIn, db: Session = Depends(get_db)):
+    email_norm = _normalize_email(payload.email)
+
+    # ¿Existe ya?
+    exists = db.scalar(
+        select(sa_func.count()).select_from(User).where(User.email == email_norm)
+    )
+    if exists:
+        raise HTTPException(409, "Email ya registrado")
+
+    user = User(
+        email=email_norm,
+        password_hash=hash_password(payload.password),
+        name=payload.name,
+        is_verified=1,  # por ahora sin verificación de email
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        isVerified=bool(user.is_verified),
+        createdAt=user.created_at,
+    )
+
+@app.post("/auth/login", response_model=TokenOut)
+def login(payload: LoginIn, db: Session = Depends(get_db)):
+    email_norm = _normalize_email(payload.email)
+    user = db.scalar(select(User).where(User.email == email_norm))
+    if not user or not verify_password(payload.password, user.password_hash):
+        # no revelar si falló email o password
+        raise HTTPException(401, "Credenciales inválidas")
+
+    token = create_access_token(user.id)
+    return TokenOut(
+        accessToken=token,
+        user=UserOut(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            isVerified=bool(user.is_verified),
+            createdAt=user.created_at,
+        ),
+    )
+
+@app.get("/me", response_model=UserOut)
+def me(current: User = Depends(get_current_user)):
+    return UserOut(
+        id=current.id,
+        email=current.email,
+        name=current.name,
+        isVerified=bool(current.is_verified),
+        createdAt=current.created_at,
+    )
