@@ -60,7 +60,7 @@ if (form && document.querySelector("h2")?.textContent.includes("Registrarse")) {
   });
 }
 
-// ===== LOGIN =====
+// ===== LOGIN ======
 if (form && document.querySelector("h2")?.textContent.includes("Iniciar")) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
