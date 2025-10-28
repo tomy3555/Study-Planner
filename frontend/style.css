@@ -375,3 +375,11 @@ main .wrapper-iniciar-sesion{
   .sidebar-min{ margin-right: 4px; }       /* micro espacio extra */
 }
 
+.form-msg {
+  margin-top: .75rem;
+  color: #b00;
+  font-size: .9rem;
+}
+.form-msg.ok {
+  color: #078e07;
+}

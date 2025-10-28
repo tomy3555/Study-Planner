@@ -35,6 +35,23 @@ document.body.classList.toggle("reduce-motion", m === "reduced");
   const html = await res.text();
   mount.innerHTML = html;
 
+  const token = localStorage.getItem("access_token");
+  const name = localStorage.getItem("user_name");
+  const authBox = mount.querySelector(".auth");
+
+  if (authBox && token) {
+    authBox.innerHTML = `
+    <span class="welcome">👋 Hola, ${name || "usuario"}</span>
+    <a href="#" id="logout">Cerrar sesión</a>
+    `;
+    authBox.querySelector("#logout").addEventListener("click", (e) => {
+    e.preventDefault();
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("user_name");
+    location.reload();
+    });
+  }
+
   // Asegurar clases para que el CSS las agarre
   mount.classList.add("topbar"); // fallback por si el partial no trae clase
   const first = mount.firstElementChild;
@@ -80,5 +97,6 @@ document.body.classList.toggle("reduce-motion", m === "reduced");
       });
     })
     .catch(() => {});
+
 })();
 

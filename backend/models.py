@@ -4,7 +4,7 @@ from enum import Enum as PyEnum
 
 from sqlalchemy import (
     String, Integer, Date, DateTime, ForeignKey,
-    UniqueConstraint, Numeric, func, Text  # 👈 Text de SQLAlchemy
+    UniqueConstraint, Numeric, func, Text  
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -176,8 +176,6 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=False)
-    # email_norm es columna generada en MySQL; en ORM la definimos solo para lectura
-    email_norm: Mapped[str | None] = mapped_column(String(255), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     is_verified: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
