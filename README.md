@@ -9,7 +9,7 @@ Stack: **HTML/CSS/JS** (frontend) + **FastAPI (Python)** + **MySQL**.
 
 ---
 
-## ✨ Funcionalidades (V1)
+##  Funcionalidades 
 
 - **Materias** y **Resúmenes** (con páginas totales y fecha de examen).
 - **Generación de plan** por resumen:
@@ -22,7 +22,7 @@ Stack: **HTML/CSS/JS** (frontend) + **FastAPI (Python)** + **MySQL**.
 
 ---
 
-## 🧱 Modelo de datos (resumen)
+##  Modelo de datos (resumen)
 
 Tablas principales:
 
@@ -34,11 +34,10 @@ Tablas principales:
 - `cards` — tarjetas SRS (pregunta/respuesta)  
 - `reviews` — historial de revisiones SRS
 
-> El script SQL completo está en `docs/schema.sql` (o copialo de este README).
 
 ---
 
-## 🧰 Requisitos
+##  Requisitos
 
 - **Python 3.11+**
 - **MySQL 8+** (podés gestionarlo con **MySQL Workbench**)
